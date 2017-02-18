@@ -6,7 +6,7 @@
 from senf import fsnative
 
 from quodlibet.formats.remote import RemoteFile
-from tests import TestCase
+from tests import TestCase, init_fake_app, destroy_fake_app
 
 from quodlibet.formats import AudioFile
 from quodlibet.library import SongLibrary
@@ -29,8 +29,8 @@ class TSongsMenu(TestCase):
     def setUp(self):
         config.init()
         self.library = SongLibrary()
-        backend = quodlibet.player.init_backend("nullbe")
-        self.device = backend.init(self.library)
+        backend = quodlibet.player.init_backend("nullbe", self.library)
+        self.device = backend.get_player()
 
         self.songs = [AudioFile({"title": x}) for x in
                       ["song1", "song2", "song3"]]
@@ -89,6 +89,13 @@ class TSongsMenu(TestCase):
         self.menu = self.empty_menu_with(delete=True)
         self.failIf(self.menu.get_children()[0].props.sensitive)
 
+    def test_preview(self):
+        init_fake_app()
+        self.menu = self.empty_menu_with(preview=True)
+        self.failUnlessEqual(1, len(self.menu))
+        self.failUnless(self.menu.get_children()[0].props.sensitive)
+        destroy_fake_app()
+
     def test_show_files(self):
         self.menu = self.empty_menu_with(show_files=True)
         self.failUnlessEqual(len(self.menu), 1)
@@ -110,10 +117,12 @@ class TSongsMenu(TestCase):
 
     def empty_menu_with(self, plugins=False, playlists=False, queue=False,
                         remove=False, delete=False, edit=False, ratings=False,
-                        show_files=False, removal_confirmer=None):
+                        preview=False, show_files=False,
+                        removal_confirmer=None):
         return SongsMenu(self.library, self.songs, plugins=plugins,
                          playlists=playlists, queue=queue, remove=remove,
                          delete=delete, edit=edit, ratings=ratings,
+                         preview=preview,
                          show_files=show_files,
                          removal_confirmer=removal_confirmer)
 

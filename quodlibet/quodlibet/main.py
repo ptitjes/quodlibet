@@ -66,12 +66,36 @@ def main(argv=None):
         "QUODLIBET_BACKEND", config.get("player", "backend"))
 
     try:
-        player = quodlibet.player.init_player(wanted_backend, app.librarian)
+        backend = quodlibet.player.init_backend(wanted_backend, app.librarian)
     except PlayerError:
         print_exc()
-        player = quodlibet.player.init_player("nullbe", app.librarian)
+        backend = quodlibet.player.init_backend("nullbe", app.librarian)
 
+    # initialize main player
+    try:
+        player = backend.get_player()
+    except PlayerError:
+        print_exc()
+        backend = quodlibet.player.init_backend("nullbe", app.librarian)
+        player = backend.get_player()
+
+    app.backend = backend
     app.player = player
+
+    # initialize preview player
+    preview_player = None
+    preview_playlist = None
+    try:
+        preview_player = backend.get_preview_player()
+
+        if preview_player:
+            from quodlibet.qltk.songmodel import PlaylistModel
+            preview_playlist = PlaylistModel()
+            preview_player.setup(preview_playlist, None, 0)
+    except PlayerError:
+        print_exc()
+    app.preview_playlist = preview_playlist
+    app.preview_player = preview_player
 
     environ["PULSE_PROP_media.role"] = "music"
     environ["PULSE_PROP_application.icon_name"] = app.icon_name
@@ -171,6 +195,10 @@ def main(argv=None):
     DBusHandler(player, library)
     tracker = SongTracker(library.librarian, player, window.playlist)
 
+    if preview_player:
+        preview_tracker =\
+            SongTracker(library.librarian, preview_player, preview_playlist)
+
     from quodlibet import session
     session_client = session.init(app)
 
@@ -208,6 +236,8 @@ def main(argv=None):
     fsiface.destroy()
 
     tracker.destroy()
+    if preview_player:
+        preview_tracker.destroy()
     quodlibet.library.save()
 
     config.save()

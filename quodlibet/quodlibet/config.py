@@ -33,6 +33,7 @@ INITIAL = {
         "pre_amp_gain": "0.0",
         "backend": "gstbe",
         "gst_pipeline": "",
+        "gst_pipeline_preview": "",
 
         # stream buffer duration in seconds
         "gst_buffer": "3",

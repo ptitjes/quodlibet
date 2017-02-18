@@ -318,3 +318,19 @@ class BasePlayer(GObject.GObject, Equalizer):
         """Whether the player supports playing the given URI scheme"""
 
         raise NotImplementedError
+
+
+class Backend(GObject.GObject):
+
+    def __init__(self, librarian):
+        super(Backend, self).__init__()
+
+    def get_player(self):
+        """Return the main player"""
+
+        raise NotImplementedError
+
+    def get_preview_player(self):
+        """Return the preview player or None."""
+
+        raise NotImplementedError

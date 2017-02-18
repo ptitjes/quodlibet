@@ -35,19 +35,7 @@ class PlayerError(Exception):
             type(self).__name__, repr(self.short_desc), repr(self.long_desc))
 
 
-def init_player(backend_name, librarian):
-    """Loads the specified backend and initializes it.
-
-    Returns a BasePlayer implementation instance.
-
-    Raises PlayerError in case of an error.
-    """
-
-    backend = init_backend(backend_name)
-    return backend.init(librarian)
-
-
-def init_backend(backend_name):
+def init_backend(backend_name, librarian):
     """Imports the player backend module for the given name.
     Raises PlayerError if the import fails.
 
@@ -62,4 +50,4 @@ def init_backend(backend_name):
     except ImportError as e:
         util.reraise(PlayerError, str(e))
     else:
-        return backend
+        return backend.init(librarian)
