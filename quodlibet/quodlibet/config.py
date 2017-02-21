@@ -275,6 +275,9 @@ INITIAL = {
 
     "display": {
         "duration_format": "standard"
+    },
+    "djmode": {
+        "activated": "true"
     }
 }
 

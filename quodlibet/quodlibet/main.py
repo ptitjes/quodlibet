@@ -155,15 +155,25 @@ def main(argv=None):
                     print_(resp, end="", flush=True)
 
     from quodlibet.qltk.quodlibetwindow import QuodLibetWindow, PlayerOptions
+    from quodlibet.qltk.qldjwindow import QuodLibetDJWindow
     # Call exec_commands after the window is restored, but make sure
     # it's after the mainloop has started so everything is set up.
 
-    app.window = window = QuodLibetWindow(
-        library, player,
-        restore_cb=lambda:
-            GLib.idle_add(exec_commands, priority=GLib.PRIORITY_HIGH))
+    djmode = config.getboolean("djmode", "activated")
 
-    app.player_options = PlayerOptions(window)
+    if not djmode:
+        window = QuodLibetWindow(
+            library, player, preview_player,
+            restore_cb=lambda:
+                GLib.idle_add(exec_commands, priority=GLib.PRIORITY_HIGH))
+        app.player_options = PlayerOptions(window)
+    else:
+        window = QuodLibetDJWindow(
+            library, player, preview_player,
+            restore_cb=lambda:
+                GLib.idle_add(exec_commands, priority=GLib.PRIORITY_HIGH))
+
+    app.window = window
 
     from quodlibet.qltk.window import Window
 
@@ -229,7 +239,9 @@ def main(argv=None):
 
     quodlibet.run(window, before_quit=before_quit)
 
-    app.player_options.destroy()
+    if not djmode:
+        app.player_options.destroy()
+
     quodlibet.finish_first_session("quodlibet")
     mmkeys_handler.quit()
     remote.stop()
