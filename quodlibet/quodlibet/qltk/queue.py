@@ -339,6 +339,11 @@ class QueueExpander(Gtk.Expander):
 class QueueModel(PlaylistModel):
     """Own class for debugging"""
 
+    def enqueue(self, songs):
+        """Append the songs to the queue model"""
+
+        self.append_many(songs)
+
 
 class PlayQueue(SongList):
 

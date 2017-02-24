@@ -37,6 +37,7 @@ from quodlibet.qltk.bookmarks import EditBookmarks
 from quodlibet.qltk.shortcuts import show_shortcuts
 from quodlibet.qltk.info import SongInfo
 from quodlibet.qltk.information import Information
+from quodlibet.qltk.history import History
 from quodlibet.qltk.msg import ErrorMessage
 from quodlibet.qltk.pluginwin import PluginWindow
 from quodlibet.qltk.properties import SongProperties
@@ -44,7 +45,6 @@ from quodlibet.qltk.prefs import PreferencesWindow
 from quodlibet.qltk.queue import PlayQueue
 from quodlibet.qltk.quodlibetwindow import ConfirmLibDirSetup, PlaybackErrorDialog
 from quodlibet.qltk.songlist import SongList, get_columns, set_columns
-from quodlibet.qltk.songmodel import PlaylistMux
 from quodlibet.qltk.x import RHPaned, RVPaned, Align, ScrolledWindow, Action
 from quodlibet.qltk.x import ToggleAction, RadioAction
 from quodlibet.qltk.x import SeparatorMenuItem, MenuItem, CellRendererPixbuf
@@ -469,7 +469,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         scrolled_history = ScrolledWindow()
         scrolled_history.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled_history.set_shadow_type(Gtk.ShadowType.IN)
-        self.history = SongList(library)
+        self.history = History(library)
         self.history.sortable = False
         self.history.props.expand = True
         scrolled_history.add(self.history)
