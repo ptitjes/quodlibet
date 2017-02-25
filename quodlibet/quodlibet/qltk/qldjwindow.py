@@ -1021,6 +1021,10 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         image.set_from_icon_name(icon, Gtk.IconSize.MENU)
 
     def __song_ended(self, player, song, stopped):
+        if song is not None:
+            self.history.add_songs([song])
+            self.history.jump_to_song(song, select=False)
+
         # Check if the song should be removed, based on the
         # active filter of the current browser.
         active_filter = self.browser.active_filter
@@ -1056,8 +1060,6 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             iter = self.queue.model.find(song)
             if iter:
                 self.queue.model.remove(iter)
-                self.history.add_songs([song])
-                self.history.jump_to_song(song, select=False)
 
     def __play_pause(self, *args):
         if app.player.song is None:
