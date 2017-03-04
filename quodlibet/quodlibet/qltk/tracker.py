@@ -29,6 +29,7 @@ class TimeTracker(GObject.GObject):
     def __init__(self, player):
         super(TimeTracker, self).__init__()
 
+        self.__interval = 1000
         self.__player = player
         self.__id = None
         self.__stop = False
@@ -37,6 +38,11 @@ class TimeTracker(GObject.GObject):
             player.connect("unpaused", self.__paused, False),
         ]
         self.__paused(player, player.paused)
+
+    def set_interval(self, interval):
+        """Update the resolution in milliseconds"""
+
+        self.__interval = interval
 
     def tick(self):
         """Emit a tick event"""
@@ -58,6 +64,10 @@ class TimeTracker(GObject.GObject):
             self.__source_remove()
             return False
 
+        if self.__interval:
+            self.__source_remove()
+            self.__paused(self.__player, self.__player.paused)
+
         self.tick()
         return True
 
@@ -69,7 +79,8 @@ class TimeTracker(GObject.GObject):
         else:
             self.__stop = False
             if self.__id is None:
-                self.__id = GLib.timeout_add_seconds(1, self.__update)
+                self.__id = GLib.timeout_add(self.__interval, self.__update)
+                self.__interval = None
 
 
 class SongTracker(object):
