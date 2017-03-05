@@ -20,7 +20,7 @@ from quodlibet.util import faulthandling
 
 
 PLUGIN_DIRS = ["editing", "events", "playorder", "songsmenu", "playlist",
-               "gstreamer", "covers", "query"]
+               "gstreamer", "covers", "query", "ui"]
 
 
 class Application(object):

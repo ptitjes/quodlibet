@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2014, 2016 Nick Boultbee
 #                 2015 Christoph Reiter
+#                 2017 Didier Villevalois
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,6 +11,35 @@ from quodlibet import config
 from quodlibet.qltk import get_menu_item_top_parent
 from quodlibet.qltk import Icons
 from gi.repository import Gtk
+
+
+class UIPlugin(object):
+    """
+    A plugin that contributes menu-items and widgets, typically.
+    
+    Such a plugin defines a UI_CONTRIBUTIONS dictionary that associates
+    placeholder id strings it can contribute to to a corresponding
+    contribution function.
+    
+    A contribution function takes the placeholder id as argument and
+    additional context arguments depending on the specific placeholder,
+    and returns the contribution or None, if the context doesn't fit the
+    contribution.
+    """
+
+    PLUGIN_INSTANCE = True
+
+    def enabled(self):
+        """Called when the plugin is enabled."""
+        pass
+
+    def disabled(self):
+        """Called when the plugin is disabled."""
+        pass
+
+    def ui_contributions(self):
+        """A dictionary of placeholder id strings to contribution functions."""
+        return {}
 
 
 class MenuItemPlugin(Gtk.ImageMenuItem):

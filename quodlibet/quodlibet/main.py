@@ -102,6 +102,9 @@ def main(argv=None):
     from quodlibet.qltk import unity
     unity.init("quodlibet.desktop", player)
 
+    from quodlibet.qltk.gui import UI
+    UI.init_plugins()
+
     from quodlibet.qltk.songsmenu import SongsMenu
     SongsMenu.init_plugins()
 

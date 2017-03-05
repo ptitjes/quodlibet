@@ -330,6 +330,11 @@ class TopBar(Gtk.Toolbar):
         self._pattern_box.pack_start(Align(text, border=3), True, True, 0)
         box.pack_start(self._pattern_box, True, True, 0)
 
+        from quodlibet.qltk.gui import WidgetPlaceholder
+        placeholder = WidgetPlaceholder("test-placeholder", player,
+                                        orientation=Gtk.Orientation.VERTICAL)
+        box.pack_start(placeholder, False, False, 0)
+
         # cover image
         self.image = CoverImage(resize=True)
         connect_destroy(player, 'song-started', self.__new_song)
@@ -347,8 +352,8 @@ class TopBar(Gtk.Toolbar):
         # QL window not beeing visible for some reason.
         assert self.image.props.margin == 0
 
-        for child in self.get_children():
-            child.show_all()
+        # for child in self.get_children():
+        #     child.show_all()
 
         context = self.get_style_context()
         context.add_class("primary-toolbar")
