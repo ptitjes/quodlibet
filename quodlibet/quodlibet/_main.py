@@ -5,6 +5,8 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation
 
+from gi.repository import GLib, GObject
+
 import os
 import sys
 
@@ -14,7 +16,7 @@ from quodlibet import util
 from quodlibet import const
 from quodlibet import build
 from quodlibet.util import cached_func, windows, set_process_title
-from quodlibet.util.dprint import print_d
+from quodlibet.util.dprint import print_d, print_e
 from quodlibet.util.path import mkdir
 from quodlibet.util import faulthandling
 
@@ -23,7 +25,7 @@ PLUGIN_DIRS = ["editing", "events", "playorder", "songsmenu", "playlist",
                "gstreamer", "covers", "query"]
 
 
-class Application(object):
+class Application(GObject.GObject):
     """A main application class for controlling the application as a whole
     and accessing sub-modules.
 
@@ -35,6 +37,11 @@ class Application(object):
     quit()    - Quit the application
 
     """
+
+    __gsignals__ = {
+        'show-uri': (GObject.SignalFlags.RUN_LAST, bool, (object,),
+                     GObject.signal_accumulator_true_handled),
+    }
 
     window = None
     library = None
@@ -50,6 +57,11 @@ class Application(object):
 
     id = None
     """The application ID e.g. 'quodlibet'"""
+
+    def __init__(self):
+        super(Application, self).__init__()
+
+        self.connect_after("show-uri", self.__report_nonhandled_uri)
 
     @property
     def icon_name(self):
@@ -94,6 +106,12 @@ class Application(object):
         from quodlibet.qltk import Window
         for window in Window.windows:
             window.hide()
+
+    def show_uri(self, uri, internal=False):
+        self.emit('show-uri', uri, internal)
+
+    def __report_nonhandled_uri(self, app, uri, internal):
+        print_e("Non handled uri: %r" % uri.geturl())
 
 app = Application()
 

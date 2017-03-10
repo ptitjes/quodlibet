@@ -8,6 +8,7 @@
 
 from gi.repository import Gtk, Pango, GObject
 
+from quodlibet import app
 from quodlibet import config
 from quodlibet import const
 from quodlibet import qltk
@@ -21,7 +22,7 @@ from quodlibet.qltk.entry import ClearEntry
 from quodlibet.qltk.x import Align, Paned, Button, ScrolledWindow
 from quodlibet.qltk.models import ObjectStore, ObjectModelFilter
 from quodlibet.qltk import Icons, is_accel, show_uri
-from quodlibet.util import connect_obj
+from quodlibet.util import connect_obj, print_d, print_e
 
 
 class PluginErrorWindow(UniqueWindow):
@@ -476,3 +477,19 @@ class PluginWindow(UniqueWindow, PersistentWindowMixin):
         pm = PluginManager.instance
         window = PluginErrorWindow(self, pm.failures)
         window.show()
+
+
+# Register plugin preferences URIs
+def _show_plugin_prefs(app, uri, internal):
+    if uri.path.startswith("/prefs/plugins/"):
+        if not internal:
+            print_e("Can't show plugin prefs from external source.")
+            return False
+
+        from .pluginwin import PluginWindow
+        print_d("Showing plugin prefs resulting from URI (%s)" % (uri, ))
+        return PluginWindow().move_to(uri.path[len("/prefs/plugins/"):])
+    else:
+        return False
+
+app.connect('show-uri', _show_plugin_prefs)

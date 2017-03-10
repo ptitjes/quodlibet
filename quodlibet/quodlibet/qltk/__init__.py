@@ -42,7 +42,8 @@ def show_uri(label, uri):
             print_w("Unknown QuodLibet URL format (%s)" % uri)
             return False
         else:
-            return __show_quodlibet_uri(parsed)
+            from quodlibet import app
+            return app.show_uri(parsed, True)
     else:
         # Gtk.show_uri_on_window exists since 3.22
         if hasattr(Gtk, "show_uri_on_window"):
@@ -50,15 +51,6 @@ def show_uri(label, uri):
             return Gtk.show_uri_on_window(get_top_parent(label), uri, 0)
         else:
             return Gtk.show_uri(None, uri, 0)
-
-
-def __show_quodlibet_uri(uri):
-    if uri.path.startswith("/prefs/plugins/"):
-        from .pluginwin import PluginWindow
-        print_d("Showing plugin prefs resulting from URI (%s)" % (uri, ))
-        return PluginWindow().move_to(uri.path[len("/prefs/plugins/"):])
-    else:
-        return False
 
 
 def get_fg_highlight_color(widget):
