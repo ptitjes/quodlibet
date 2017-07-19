@@ -59,6 +59,11 @@ class SeekBar(Gtk.Box):
             self._update(player)
         self._tracker.tick()
 
+        self._sensitive = True
+
+    def set_sensitive(self, sensitive):
+        self._sensitive = sensitive
+
     def _on_destroy(self, *args):
         self._tracker.destroy()
 
@@ -117,7 +122,8 @@ class SeekBar(Gtk.Box):
         self._remaining_label.set_disabled(not player.seekable)
         self._elapsed_label.set_disabled(not player.seekable)
 
-        self.set_sensitive(player.seekable)
+        sensitive = self._sensitive and player.seekable
+        super(SeekBar, self)..set_sensitive(sensitive)
 
 
 class SeekBarPlugin(EventPlugin):

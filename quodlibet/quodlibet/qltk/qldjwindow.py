@@ -154,6 +154,7 @@ class CurrentColumn(SongListColumn):
 class PlayerBar(Gtk.Toolbar):
     def __init__(self, parent, player, library, modifiable=True):
         super(PlayerBar, self).__init__()
+        self.modifiable = modifiable
 
         control_item = Gtk.ToolItem()
         self.insert(control_item, 0)
@@ -222,6 +223,7 @@ class PlayerBar(Gtk.Toolbar):
 
         if widget:
             self._pattern_box.pack_start(widget, False, True, 0)
+            widget.set_sensitive(self.modifiable)
 
     def _on_volume_changed(self, player, *args):
         config.set("memory", "volume", str(player.volume))
@@ -484,7 +486,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
 
         self.playlist = self.queue.model
 
-        main_player_bar = PlayerBar(self, player, library, not preview_player)
+        main_player_bar = PlayerBar(self, player, library, False)
         self.main_player_bar = main_player_bar
 
         self.__browserbox = Align(bottom=3)
