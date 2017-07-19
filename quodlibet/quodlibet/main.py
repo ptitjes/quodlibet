@@ -84,17 +84,13 @@ def main(argv=None):
 
     # initialize preview player
     preview_player = None
-    preview_playlist = None
     try:
         preview_player = backend.get_preview_player()
 
         if preview_player:
             from quodlibet.qltk.songmodel import PlaylistModel
-            preview_playlist = PlaylistModel()
-            preview_player.setup(preview_playlist, None, 0)
     except PlayerError:
         print_exc()
-    app.preview_playlist = preview_playlist
     app.preview_player = preview_player
 
     environ["PULSE_PROP_media.role"] = "music"
@@ -207,7 +203,7 @@ def main(argv=None):
 
     if preview_player:
         preview_tracker =\
-            SongTracker(library.librarian, preview_player, preview_playlist)
+            SongTracker(library.librarian, preview_player, window.playlist)
 
     from quodlibet import session
     session_client = session.init(app)

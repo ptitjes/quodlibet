@@ -583,6 +583,10 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         self.songlist.connect('columns-changed', self.__hide_headers)
         self.songlist.info.connect("changed", self.__set_totals)
 
+        if preview_player:
+            self.preview_playlist = self.songlist.model
+            preview_player.setup(self.songlist.model, None, 0)
+
         lib = library.librarian
         connect_destroy(lib, 'changed', self.__song_changed, player)
 

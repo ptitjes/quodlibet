@@ -335,14 +335,14 @@ class SongsMenu(Gtk.Menu):
                 songs = [s for s in songs if s.can_add]
                 if songs:
                     from quodlibet import app
-                    app.preview_playlist.set(songs)
-                    app.preview_player.next()
+                    preview_playlist = app.window.preview_playlist
+                    app.preview_player.go_to(songs[0], True, preview_playlist)
 
             b.connect('activate', prelisten_cb, songs)
             if accels:
                 qltk.add_fake_accel(b, "<shift>Return")
             self.append(b)
-            b.set_sensitive(can_add and bool(songs))
+            b.set_sensitive(can_add and bool(songs) and len(songs) == 1)
 
         if queue:
             b = qltk.MenuItem(_("Add to _Queue"), Icons.LIST_ADD)
