@@ -351,14 +351,17 @@ MENU = """
       <separator/>
       <menuitem action='Information' always-show-image='true'/>
       <separator/>
-      <menuitem action='Jump' always-show-image='true'/>
+      <menuitem action='JumpMaster' always-show-image='true'/>
+      <menuitem action='JumpPreview' always-show-image='true'/>
     </menu>
 
     <menu action='Control'>
+      <menuitem action='Start' always-show-image='true'/>
+      <menuitem action='StopAfter' always-show-image='true'/>
+      <separator/>
       <menuitem action='Previous' always-show-image='true'/>
       <menuitem action='PlayPause' always-show-image='true'/>
       <menuitem action='Next' always-show-image='true'/>
-      <menuitem action='StopAfter' always-show-image='true'/>
     </menu>
 
     <menu action='Browse'>
@@ -556,14 +559,14 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         main_box.show_all()
 
         self._playback_error_dialog = None
-        connect_destroy(player, 'song-started', self.__song_started)
-        connect_destroy(player, 'paused', self.__update_paused, True)
-        connect_destroy(player, 'unpaused', self.__update_paused, False)
+        connect_destroy(player, 'song-started', self.__master_song_started)
+        connect_destroy(player, 'paused', self.__master_update_paused, True)
+        connect_destroy(player, 'unpaused', self.__master_update_paused, False)
         # make sure we redraw all error indicators before opening
         # a dialog (blocking the main loop), so connect after default handlers
         connect_after_destroy(player, 'error', self.__player_error)
         # connect after to let SongTracker update stats
-        connect_after_destroy(player, "song-ended", self.__song_ended)
+        connect_after_destroy(player, "song-ended", self.__master_song_ended)
 
         # set at least the playlist. the song should be restored
         # after the browser emits the song list
@@ -579,7 +582,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             config.save()
             raise
 
-        self.songlist.connect('row-activated', self.__enqueue, player)
+        self.songlist.connect('row-activated', self.__prelisten, preview_player)
         self.songlist.connect('popup-menu', self.__songs_popup_menu)
         self.songlist.connect('columns-changed', self.__cols_changed)
         self.songlist.connect('columns-changed', self.__hide_headers)
@@ -589,8 +592,18 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             self.preview_playlist = self.songlist.model
             preview_player.setup(self.songlist.model, None, 0)
 
+            connect_destroy(preview_player, 'song-started', self.__preview_song_started)
+            connect_destroy(preview_player, 'paused', self.__preview_update_paused, True)
+            connect_destroy(preview_player, 'unpaused', self.__preview_update_paused, False)
+            # make sure we redraw all error indicators before opening
+            # a dialog (blocking the main loop), so connect after default handlers
+            connect_after_destroy(preview_player, 'error', self.__player_error)
+            # connect after to let SongTracker update stats
+            connect_after_destroy(preview_player, "song-ended", self.__preview_song_ended)
+
         lib = library.librarian
-        connect_destroy(lib, 'changed', self.__song_changed, player)
+        connect_destroy(lib, 'changed', self.__master_song_changed, player)
+        connect_destroy(lib, 'changed', self.__preview_song_changed, preview_player)
 
         targets = [("text/uri-list", Gtk.TargetFlags.OTHER_APP, DND_URI_LIST)]
         targets = [Gtk.TargetEntry.new(*t) for t in targets]
@@ -604,7 +617,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         if config.getboolean('library', 'refresh_on_start'):
             self.__rebuild(None, False)
 
-        self.connect("key-press-event", self.__key_pressed, player)
+        self.connect("key-press-event", self.__key_pressed, preview_player)
 
         self.connect("destroy", self.__destroy)
 
@@ -702,6 +715,12 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             seek_relative(-10)
             return True
 
+    def __quit(self, *args):
+        # TODO Check that there is no song in queue
+        # And do not quit if we are in DJ session
+
+        self.destroy()
+
     def __destroy(self, *args):
         # self.playlist.destroy()
 
@@ -764,9 +783,16 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             act.connect('activate', self.__current_song_info)
             ag.add_action(act)
 
-            act = Action(name="Jump", label=_('_Jump to Playing Song'),
+            act = Action(name="JumpMaster",
+                         label=_('_Jump to Master Playing Song'),
                          icon_name=Icons.GO_JUMP)
-            act.connect('activate', self.__jump_to_current)
+            act.connect('activate', self.__jump_to_current_master)
+            ag.add_action_with_accel(act, "<Primary><shift>J")
+
+            act = Action(name="JumpPreview",
+                         label=_('_Jump to Preview Playing Song'),
+                         icon_name=Icons.GO_JUMP)
+            act.connect('activate', self.__jump_to_current_preview)
             ag.add_action_with_accel(act, "<Primary>J")
 
         def add_top_level_items(ag):
@@ -812,7 +838,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
 
         act = Action(name="Quit", label=_('_Quit'),
                      icon_name=Icons.APPLICATION_EXIT)
-        act.connect('activate', lambda *x: self.destroy())
+        act.connect('activate', self.__quit)
         ag.add_action_with_accel(act, "<Primary>Q")
 
         act = Action(name="EditTags", label=_('Edit _Tags'),
@@ -824,6 +850,17 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         connect_obj(act, 'activate', self.__edit_bookmarks,
                     library.librarian, player)
         ag.add_action_with_accel(act, "<Primary>B")
+
+        act = Action(name="Start", label=_("Start Session"),
+                     icon_name=Icons.MEDIA_PLAYBACK_START)
+        act.connect('activate', self.__start_session)
+        ag.add_action(act)
+
+        act = ToggleAction(name="StopAfter", label=_("Stop Session After This Song"))
+        ag.add_action(act)
+
+        # access point for the tray icon
+        self.stop_after = act
 
         act = Action(name="Previous", label=_('Pre_vious'),
                      icon_name=Icons.MEDIA_SKIP_BACKWARD)
@@ -839,12 +876,6 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
                      icon_name=Icons.MEDIA_SKIP_FORWARD)
         act.connect('activate', self.__next_song)
         ag.add_action_with_accel(act, "<Primary>period")
-
-        act = ToggleAction(name="StopAfter", label=_("Stop After This Song"))
-        ag.add_action_with_accel(act, "<shift>space")
-
-        # access point for the tray icon
-        self.stop_after = act
 
         act = Action(name="Shortcuts", label=_("_Keyboard Shortcuts"))
         act.connect('activate', self.__keyboard_shortcuts)
@@ -1014,19 +1045,10 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         self._filter_menu.set_browser(self.browser)
         self.__hide_headers()
 
-    def __update_paused(self, player, paused):
-        menu = self.ui.get_widget("/Menu/Control/PlayPause")
-        image = menu.get_image()
+    def __master_update_paused(self, player, paused):
+        pass
 
-        if paused:
-            label, icon = _("_Play"), Icons.MEDIA_PLAYBACK_START
-        else:
-            label, icon = _("P_ause"), Icons.MEDIA_PLAYBACK_PAUSE
-
-        menu.set_label(label)
-        image.set_from_icon_name(icon, Gtk.IconSize.MENU)
-
-    def __song_ended(self, player, song, stopped):
+    def __master_song_ended(self, player, song, stopped):
         if song is not None:
             self.history.add_songs([song])
             self.history.jump_to_song(song, select=False)
@@ -1043,7 +1065,12 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             player.paused = True
             self.stop_after.set_active(False)
 
-    def __song_changed(self, library, songs, player):
+        print(stopped)
+        if stopped:
+            has_more = bool(player.song)
+            self.ui.get_widget("/Menu/Control/Start").set_sensitive(has_more)
+
+    def __master_song_changed(self, library, songs, player):
         if player.info in songs:
             self.__update_title(player)
 
@@ -1054,12 +1081,12 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             title = song.comma("~title~version~~people") + " - " + title
         self.set_title(title)
 
-    def __song_started(self, player, song):
+    def __master_song_started(self, player, song):
         self.__update_title(player)
 
-        for wid in ["Control/Next", "Control/StopAfter",
+        for wid in ["Control/Start", "Control/StopAfter",
                     "Song/EditTags", "Song/Information",
-                    "Song/EditBookmarks", "Song/Jump"]:
+                    "Song/EditBookmarks", "Song/JumpMaster"]:
             self.ui.get_widget('/Menu/' + wid).set_sensitive(bool(song))
 
         if song is not None:
@@ -1067,13 +1094,74 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             if iter:
                 self.queue.model.remove(iter)
 
-    def __play_pause(self, *args):
-        if app.player.song is None:
-            app.player.reset()
-        else:
-            app.player.paused ^= True
+    def __preview_update_paused(self, player, paused):
+        menu = self.ui.get_widget("/Menu/Control/PlayPause")
+        image = menu.get_image()
 
-    def __jump_to_current(self, explicit, force_scroll=False):
+        if paused:
+            label, icon = _("_Play"), Icons.MEDIA_PLAYBACK_START
+        else:
+            label, icon = _("P_ause"), Icons.MEDIA_PLAYBACK_PAUSE
+
+        menu.set_label(label)
+        image.set_from_icon_name(icon, Gtk.IconSize.MENU)
+
+    def __preview_song_ended(self, player, song, stopped):
+        pass
+
+    def __preview_song_changed(self, library, songs, player):
+        pass
+
+    def __preview_song_started(self, player, song):
+        for wid in ["Control/Next", "Song/JumpPreview"]:
+            self.ui.get_widget('/Menu/' + wid).set_sensitive(bool(song))
+
+    def __start_session(self, *args):
+        if app.player.song is not None:
+            app.player.paused = False
+
+    def __prelisten(self, widget, indices, col, player):
+        self._activated = True
+        model = self.preview_playlist
+        iter = model.get_iter(indices)
+        if player.go_to(iter, explicit=True, source=model):
+            player.paused = False
+
+    def __play_pause(self, *args):
+        if app.preview_player.song is None:
+            app.preview_player.reset()
+        else:
+            app.preview_player.paused ^= True
+
+    def __jump_to_current_master(self, explicit, force_scroll=False):
+        """Select/scroll to the current playing song in the playlist.
+        If it can't be found tell the browser to properly fill the playlist
+        with an appropriate selection containing the song.
+
+        explicit means that the jump request comes from the user and not
+        from an event like song-started.
+
+        force_scroll will ask the browser to refill the playlist in any case.
+        """
+
+        song = app.player.song
+        self.__jump_to_current(song, explicit, force_scroll)
+
+    def __jump_to_current_preview(self, explicit, force_scroll=False):
+        """Select/scroll to the current playing song in the playlist.
+        If it can't be found tell the browser to properly fill the playlist
+        with an appropriate selection containing the song.
+
+        explicit means that the jump request comes from the user and not
+        from an event like song-started.
+
+        force_scroll will ask the browser to refill the playlist in any case.
+        """
+
+        song = app.preview_player.song
+        self.__jump_to_current(song, explicit, force_scroll)
+
+    def __jump_to_current(self, song, explicit, force_scroll=False):
         """Select/scroll to the current playing song in the playlist.
         If it can't be found tell the browser to properly fill the playlist
         with an appropriate selection containing the song.
@@ -1089,8 +1177,6 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             if ok:
                 self.songlist.grab_focus()
             return False
-
-        song = app.player.song
 
         # We are not playing a song
         if song is None:
@@ -1114,10 +1200,10 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
                 idle_jump_to, song, explicit, priority=GLib.PRIORITY_LOW)
 
     def __next_song(self, *args):
-        app.player.next()
+        app.preview_player.next()
 
     def __previous_song(self, *args):
-        app.player.previous()
+        app.preview_player.previous()
 
     def __rebuild(self, activator, force):
         scan_library(self.__library, force)
@@ -1214,11 +1300,6 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             if self.__restore_cb:
                 self.__restore_cb()
                 self.__restore_cb = None
-
-    def __enqueue(self, view, path, column, player):
-        app.window.playlist.append([view.get_model()[path][0]])
-        if player.song is None:
-            player.next()
 
     def __hide_headers(self, activator=None):
         for column in self.songlist.get_columns():
