@@ -574,6 +574,13 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         self.__restore_cb = restore_cb
         self.__first_browser_set = True
 
+        # self.__sigs = []
+        for sig in ['row-deleted', 'row-inserted', 'rows-reordered']:
+            s = self.playlist.connect(sig, self.__queue_changed)
+            # self.__sigs.append(s)
+
+        self.__queue_changed()
+
         try:
             self._select_browser(
                 self, config.get("memory", "browser"), library, player, True)
@@ -1046,7 +1053,8 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         self.__hide_headers()
 
     def __master_update_paused(self, player, paused):
-        pass
+        can_start = player.paused and len(self.playlist.get()) > 0
+        self.ui.get_widget("/Menu/Control/Start").set_sensitive(can_start)
 
     def __master_song_ended(self, player, song, stopped):
         if song is not None:
@@ -1065,14 +1073,13 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             player.paused = True
             self.stop_after.set_active(False)
 
-        print(stopped)
-        if stopped:
-            has_more = bool(player.song)
-            self.ui.get_widget("/Menu/Control/Start").set_sensitive(has_more)
-
     def __master_song_changed(self, library, songs, player):
         if player.info in songs:
             self.__update_title(player)
+
+    def __queue_changed(self, *args):
+        can_start = app.player.paused and len(self.playlist.get()) > 0
+        self.ui.get_widget("/Menu/Control/Start").set_sensitive(can_start)
 
     def __update_title(self, player):
         song = player.info
@@ -1084,7 +1091,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
     def __master_song_started(self, player, song):
         self.__update_title(player)
 
-        for wid in ["Control/Start", "Control/StopAfter",
+        for wid in ["Control/StopAfter",
                     "Song/EditTags", "Song/Information",
                     "Song/EditBookmarks", "Song/JumpMaster"]:
             self.ui.get_widget('/Menu/' + wid).set_sensitive(bool(song))
@@ -1117,8 +1124,10 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             self.ui.get_widget('/Menu/' + wid).set_sensitive(bool(song))
 
     def __start_session(self, *args):
-        if app.player.song is not None:
+        if app.player.paused and len(self.playlist.get()) > 0:
             app.player.paused = False
+            if not bool(app.player.song):
+                app.player.next()
 
     def __prelisten(self, widget, indices, col, player):
         self._activated = True
