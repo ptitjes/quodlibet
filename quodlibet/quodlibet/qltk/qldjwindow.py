@@ -811,6 +811,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         self.connect("key-press-event", self.__key_pressed, preview_player)
 
         self.connect("destroy", self.__destroy)
+        self.connect("delete-event", self.__delete_window)
 
         self.enable_window_tracking("quodlibet")
 
@@ -906,12 +907,20 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             seek_relative(-10)
             return True
 
-    def __quit(self, *args):
+    def __confirm_quit(self, *args):
         # Check that master player is not playing
         if not app.player.paused:
             resp = ConfirmQuit(self).run()
             if resp != ConfirmQuit.RESPONSE_QUIT:
-                return
+                return False
+        return True
+
+    def __delete_window(self, *args):
+        return not self.__confirm_quit()
+
+    def __quit(self, *args):
+        if not self.__confirm_quit():
+            return
 
         self.destroy()
 
