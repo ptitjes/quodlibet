@@ -667,7 +667,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         scrolled_queue = ScrolledWindow()
         scrolled_queue.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled_queue.set_shadow_type(Gtk.ShadowType.IN)
-        self.queue = PlayQueue(library, player)
+        self.queue = PlayQueue(library, player, False)
         self.queue.props.expand = True
         scrolled_queue.add(self.queue)
 

@@ -350,13 +350,14 @@ class PlayQueue(SongList):
     sortable = False
     _activated = False
 
-    def __init__(self, library, player):
+    def __init__(self, library, player, preview=True):
         super(PlayQueue, self).__init__(library, player, model_cls=QueueModel)
         keep_song = config.getboolean("memory", "queue_keep_songs", False)
         if keep_song:
             self.set_first_column_type(CurrentColumn)
         self.set_size_request(-1, 120)
-        self.connect('row-activated', self.__go_to, player)
+        if preview:
+            self.connect('row-activated', self.__go_to, player)
 
         def reset_activated(*args):
             self._activated = False
