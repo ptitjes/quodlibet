@@ -44,6 +44,7 @@ from quodlibet.qltk.properties import SongProperties
 from quodlibet.qltk.prefs import PreferencesWindow
 from quodlibet.qltk.queue import PlayQueue
 from quodlibet.qltk.quodlibetwindow import ConfirmLibDirSetup, PlaybackErrorDialog
+from quodlibet.qltk.msg import WarningMessage
 from quodlibet.qltk.songlist import SongList, get_columns, set_columns
 from quodlibet.qltk.x import RHPaned, RVPaned, Align, ScrolledWindow, Action
 from quodlibet.qltk.x import ToggleAction, RadioAction
@@ -399,6 +400,23 @@ class PlayerBar(Gtk.Toolbar):
 
     def __song_art_changed(self, player, songs, library):
         self.image.refresh()
+
+
+class ConfirmQuit(WarningMessage):
+
+    RESPONSE_QUIT = 1
+
+    def __init__(self, parent):
+        title = _("Quit ?")
+        description = _("Quit while in session ?")
+
+        super(ConfirmQuit, self).__init__(
+            parent, title, description, buttons=Gtk.ButtonsType.NONE)
+
+        self.add_button(_("_Cancel"), Gtk.ResponseType.CANCEL)
+        self.add_icon_button(_("_Quit"), Icons.WINDOW_CLOSE,
+                             self.RESPONSE_QUIT)
+        self.set_default_response(Gtk.ResponseType.CANCEL)
 
 
 class AppMenu(object):
@@ -889,8 +907,11 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             return True
 
     def __quit(self, *args):
-        # TODO Check that there is no song in queue
-        # And do not quit if we are in DJ session
+        # Check that master player is not playing
+        if not app.player.paused:
+            resp = ConfirmQuit(self).run()
+            if resp != ConfirmQuit.RESPONSE_QUIT:
+                return
 
         self.destroy()
 
