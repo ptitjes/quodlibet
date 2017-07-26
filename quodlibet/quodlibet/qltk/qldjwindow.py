@@ -30,7 +30,7 @@ from quodlibet.formats.remote import RemoteFile
 from quodlibet.qltk.browser import LibraryBrowser, FilterMenu
 from quodlibet.qltk.chooser import choose_folders, choose_files, \
     create_chooser_filter
-from quodlibet.qltk.controls import PlayControls
+from quodlibet.qltk.controls import PlayPauseButton, Volume
 from quodlibet.qltk.cover import CoverImage
 from quodlibet.qltk.getstring import GetStringDialog
 from quodlibet.qltk.bookmarks import EditBookmarks
@@ -48,6 +48,9 @@ from quodlibet.qltk.songlist import SongList, get_columns, set_columns
 from quodlibet.qltk.x import RHPaned, RVPaned, Align, ScrolledWindow, Action
 from quodlibet.qltk.x import ToggleAction, RadioAction
 from quodlibet.qltk.x import SeparatorMenuItem, MenuItem, CellRendererPixbuf
+from quodlibet.qltk.x import SymbolicIconImage, RadioMenuItem
+from quodlibet.qltk.x import HighlightToggleButton
+from quodlibet.qltk.seekbutton import SeekButton
 from quodlibet.qltk import Icons
 from quodlibet.qltk.about import AboutDialog
 from quodlibet.util import copool, connect_destroy, connect_after_destroy
@@ -151,17 +154,191 @@ class CurrentColumn(SongListColumn):
         cell.set_property('gicon', gicon)
 
 
+class MasterPlayControls(Gtk.VBox):
+
+    def __init__(self, player, playlist, library, stop_after_action, ui):
+        super(MasterPlayControls, self).__init__(spacing=3)
+
+        row = Gtk.Table(n_rows=1, n_columns=3, homogeneous=True)
+        row.set_row_spacings(3)
+        row.set_col_spacings(3)
+
+        start = Gtk.Button(relief=Gtk.ReliefStyle.NONE)
+        start.add(SymbolicIconImage("media-playback-start",
+                                    Gtk.IconSize.LARGE_TOOLBAR))
+        row.attach(start, 0, 1, 0, 1)
+
+        stop_after = HighlightToggleButton(
+            relief=Gtk.ReliefStyle.NONE,
+            image=SymbolicIconImage("media-playback-stop",
+                                    Gtk.IconSize.LARGE_TOOLBAR))
+        stop_after.set_action_name("/Menu/Control/StopAfter")
+        row.attach(stop_after, 1, 2, 0, 1)
+
+        self.volume = Volume(player)
+        self.volume.set_relief(Gtk.ReliefStyle.NONE)
+        row.attach(self.volume, 2, 3, 0, 1)
+
+        # XXX: Adwaita defines a different padding for GtkVolumeButton
+        # We force it to 0 here, which works because the other (normal) buttons
+        # in the grid set the width/height
+        qltk.add_css(self.volume, """
+            .button {
+                padding: 0px;
+            }
+        """)
+
+        self.pack_start(row, False, True, 0)
+
+        connect_destroy(
+            player, 'song-started', self.__song_started, start, stop_after)
+        connect_destroy(
+            player, 'paused', self.__update_paused, playlist, start, stop_after, False)
+        connect_destroy(
+            player, 'unpaused', self.__update_paused, playlist, start, stop_after, True)
+
+        connect_obj(start, 'clicked', self.__start, player, playlist)
+        # self.__sigs = []
+        for sig in ['row-deleted', 'row-inserted', 'rows-reordered']:
+            s = playlist.connect(sig, lambda *args: self.__queue_changed(playlist, player, start))
+            # self.__sigs.append(s)
+        can_start = player.paused and len(playlist.get()) > 0
+        start.set_sensitive(can_start)
+
+        connect_obj(stop_after, 'clicked', self.__stop_after, stop_after, stop_after_action)
+        stop_after_menu_item = ui.get_widget("/Menu/Control/StopAfter")
+        connect_obj(
+            stop_after_menu_item, 'activate', self.__update_stop_after, stop_after, stop_after_action)
+
+        stop_after.set_active(stop_after_action.get_active())
+
+    def __start(self, player, playlist):
+        if player.paused and len(playlist.get()) > 0:
+            player.paused = False
+            if not bool(player.song):
+                player.next()
+
+    def __queue_changed(self, playlist, player, start):
+        can_start = player.paused and len(playlist.get()) > 0
+        start.set_sensitive(can_start)
+
+    def __stop_after(self, stop_after, stop_after_action):
+        stop_after_action.set_active(stop_after.get_active())
+
+    def __update_stop_after(self, stop_after, stop_after_action):
+        stop_after.set_active(stop_after_action.get_active())
+
+    def __update_paused(self, player, playlist, start, stop_after, state):
+        can_start = player.paused and len(playlist.get()) > 0
+        start.set_sensitive(can_start)
+
+    def __song_started(self, player, song, start, stop_after):
+        stop_after.set_sensitive(bool(song))
+
+
+class PreviewPlayControls(Gtk.VBox):
+
+    def __init__(self, player, playlist, library):
+        super(PreviewPlayControls, self).__init__(spacing=3)
+
+        row = Gtk.Table(n_rows=1, n_columns=4, homogeneous=True)
+        row.set_row_spacings(3)
+        row.set_col_spacings(3)
+
+        prev = Gtk.Button(relief=Gtk.ReliefStyle.NONE)
+        prev.add(SymbolicIconImage("media-skip-backward",
+                                   Gtk.IconSize.LARGE_TOOLBAR))
+        row.attach(prev, 0, 1, 0, 1)
+
+        play = PlayPauseButton()
+        row.attach(play, 1, 2, 0, 1)
+
+        next_ = Gtk.Button(relief=Gtk.ReliefStyle.NONE)
+        next_.add(SymbolicIconImage("media-skip-forward",
+                                    Gtk.IconSize.LARGE_TOOLBAR))
+        row.attach(next_, 2, 3, 0, 1)
+
+        self.volume = Volume(player)
+        self.volume.set_relief(Gtk.ReliefStyle.NONE)
+        row.attach(self.volume, 3, 4, 0, 1)
+
+        # XXX: Adwaita defines a different padding for GtkVolumeButton
+        # We force it to 0 here, which works because the other (normal) buttons
+        # in the grid set the width/height
+        qltk.add_css(self.volume, """
+            .button {
+                padding: 0px;
+            }
+        """)
+
+        self.pack_start(row, False, True, 0)
+
+        connect_obj(prev, 'clicked', self.__previous, player)
+        self._toggle_id = play.connect('toggled', self.__playpause, player)
+        play.add_events(Gdk.EventMask.SCROLL_MASK)
+        connect_obj(play, 'scroll-event', self.__scroll, player)
+        connect_obj(next_, 'clicked', self.__next, player)
+        connect_destroy(
+            player, 'song-started', self.__song_started, next_, play)
+        connect_destroy(
+            player, 'paused', self.__on_set_paused_unpaused, play, False)
+        connect_destroy(
+            player, 'unpaused', self.__on_set_paused_unpaused, play, True)
+
+    def __on_set_paused_unpaused(self, player, button, state):
+        # block to prevent a signal cycle in case the paused signal and state
+        # get out of sync (shouldn't happen.. but)
+        button.handler_block(self._toggle_id)
+        button.set_active(state)
+        button.handler_unblock(self._toggle_id)
+
+    def __scroll(self, player, event):
+        if event.direction in [Gdk.ScrollDirection.UP,
+                               Gdk.ScrollDirection.LEFT]:
+            player.previous()
+        elif event.direction in [Gdk.ScrollDirection.DOWN,
+                                 Gdk.ScrollDirection.RIGHT]:
+            player.next()
+
+    def __song_started(self, player, song, next, play):
+        play.set_active(not player.paused)
+
+    def __playpause(self, button, player):
+        if button.get_active() and player.song is None:
+            player.reset()
+            button.set_active(not player.paused)
+        else:
+            player.paused = not button.get_active()
+
+    def __previous(self, player):
+        player.previous()
+
+    def __next(self, player):
+        player.next()
+
+
 class PlayerBar(Gtk.Toolbar):
-    def __init__(self, parent, player, library, modifiable=True):
+    def __init__(self, parent, player, playlist, library, stop_after_action=None, ui=None, preview=True):
         super(PlayerBar, self).__init__()
-        self.modifiable = modifiable
+        self.preview = preview
 
-        control_item = Gtk.ToolItem()
-        self.insert(control_item, 0)
+        all = Gtk.ToolItem()
+        self.insert(all, 2)
+        all.set_expand(True)
 
-        if modifiable:
+        box = Gtk.Box(spacing=6)
+        all.add(box)
+        qltk.add_css(self, "GtkToolbar {padding: 3px;}")
+
+        self._left_side = Gtk.VBox()
+        box.pack_start(self._left_side, True, True, 0)
+
+        controls_and_text = Gtk.HBox()
+        self._left_side.pack_start(controls_and_text, True, True, 0)
+
+        if preview:
             # play controls
-            t = PlayControls(player, library.librarian)
+            t = PreviewPlayControls(player, playlist, library.librarian)
             self.volume = t.volume
 
             # only restore the volume in case it is managed locally, otherwise
@@ -170,28 +347,17 @@ class PlayerBar(Gtk.Toolbar):
                 player.volume = config.getfloat("memory", "volume")
 
             connect_destroy(player, "notify::volume", self._on_volume_changed)
-            control_item.add(t)
-            # else:
+            controls_and_text.pack_start(t, False, True, 0)
+        else:
             # TODO Add a global control lock button, and
             # Start session, stop after next and fade to next
-
-        self.insert(Gtk.SeparatorToolItem(), 1)
-
-        info_item = Gtk.ToolItem()
-        self.insert(info_item, 2)
-        info_item.set_expand(True)
-
-        box = Gtk.Box(spacing=6)
-        info_item.add(box)
-        qltk.add_css(self, "GtkToolbar {padding: 3px;}")
-
-        self._pattern_box = Gtk.VBox()
+            t = MasterPlayControls(player, playlist, library.librarian, stop_after_action, ui)
+            controls_and_text.pack_start(t, False, True, 0)
 
         # song text
         info_pattern_path = os.path.join(quodlibet.get_user_dir(), "songinfo")
         text = SongInfo(library.librarian, player, info_pattern_path)
-        self._pattern_box.pack_start(Align(text, border=3), True, True, 0)
-        box.pack_start(self._pattern_box, True, True, 0)
+        controls_and_text.pack_start(Align(text, border=3), True, True, 0)
 
         # cover image
         self.image = CoverImage(resize=True)
@@ -217,13 +383,13 @@ class PlayerBar(Gtk.Toolbar):
         context.add_class("primary-toolbar")
 
     def set_seekbar_widget(self, widget):
-        children = self._pattern_box.get_children()
+        children = self._left_side.get_children()
         if len(children) > 1:
-            self._pattern_box.remove(children[-1])
+            self._left_side.remove(children[-1])
 
         if widget:
-            self._pattern_box.pack_start(widget, False, True, 0)
-            widget.set_sensitive(self.modifiable)
+            self._left_side.pack_start(widget, False, True, 0)
+            widget.set_sensitive(self.preview)
 
     def _on_volume_changed(self, player, *args):
         config.set("memory", "volume", str(player.volume))
@@ -489,7 +655,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
 
         self.playlist = self.queue.model
 
-        main_player_bar = PlayerBar(self, player, library, False)
+        main_player_bar = PlayerBar(self, player, self.playlist, library, self.stop_after, ui, False)
         self.main_player_bar = main_player_bar
 
         self.__browserbox = Align(bottom=3)
@@ -521,7 +687,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         right_side.pack_start(self.__browserbox, True, True, 0)
 
         if preview_player:
-            preview_player_bar = PlayerBar(self, preview_player, library)
+            preview_player_bar = PlayerBar(self, preview_player, self.songlist.model, library)
             self.preview_player_bar = preview_player_bar
 
             right_side.pack_end(preview_player_bar, False, True, 0)
