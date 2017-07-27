@@ -123,7 +123,7 @@ class SeekBar(Gtk.Box):
         self._elapsed_label.set_disabled(not player.seekable)
 
         sensitive = self._sensitive and player.seekable
-        super(SeekBar, self)..set_sensitive(sensitive)
+        super(SeekBar, self).set_sensitive(sensitive)
 
 
 class SeekBarPlugin(EventPlugin):
