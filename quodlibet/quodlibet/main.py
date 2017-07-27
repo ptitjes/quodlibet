@@ -155,7 +155,8 @@ def main(argv=None):
     # Call exec_commands after the window is restored, but make sure
     # it's after the mainloop has started so everything is set up.
 
-    djmode = config.getboolean("djmode", "activated")
+    djmode = environ.get(
+        "QUODLIBET_DJMODE", config.getboolean("djmode", "activated"))
 
     if not djmode:
         window = QuodLibetWindow(
