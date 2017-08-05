@@ -72,7 +72,7 @@ class WaveformSeekBar(Gtk.Box):
         connect_destroy(player, 'notify::seekable', self._on_seekable_changed)
         connect_destroy(library, 'changed', self._on_song_changed, player)
 
-        self._sensitive = False
+        self._sensitive = True
 
         self.connect('destroy', self._on_destroy)
         self._update(player)
@@ -242,11 +242,11 @@ class WaveformSeekBar(Gtk.Box):
             self._elapsed_label.set_disabled(not player.seekable)
             self._remaining_label.set_disabled(not player.seekable)
             sensitive = self._sensitive and player.seekable
-            super(WaveformSeekBar, self).set_sensitive(sensitive)
+            self._waveform_scale.set_sensitive(sensitive)
         else:
             self._remaining_label.set_disabled(True)
             self._elapsed_label.set_disabled(True)
-            super(WaveformSeekBar, self).set_sensitive(False)
+            self._waveform_scale.set_sensitive(False)
 
     def _update_waveform(self, player, full_redraw=False):
         if player.info:
