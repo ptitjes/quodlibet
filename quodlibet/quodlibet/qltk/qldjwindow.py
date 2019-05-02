@@ -539,6 +539,7 @@ MENU = """
     </menu>
 
     <menu action='Control'>
+      <menuitem action='Clear' always-show-image='true'/>
       <menuitem action='Start' always-show-image='true'/>
       <menuitem action='StopAfter' always-show-image='true'/>
       <separator/>
@@ -1057,6 +1058,11 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
                     library.librarian, player)
         ag.add_action_with_accel(act, "<Primary>B")
 
+        act = Action(name="Clear", label=_("Clear Session"),
+                     icon_name=Icons.EDIT_CLEAR)
+        act.connect('activate', self.__clear_session)
+        ag.add_action(act)
+
         act = Action(name="Start", label=_("Start Session"),
                      icon_name=Icons.MEDIA_PLAYBACK_START)
         act.connect('activate', self.__start_session)
@@ -1252,8 +1258,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         self.__hide_headers()
 
     def __master_update_paused(self, player, paused):
-        can_start = player.paused and len(self.playlist.get()) > 0
-        self.ui.get_widget("/Menu/Control/Start").set_sensitive(can_start)
+        self.__update_session(player)
 
     def __master_song_ended(self, player, song, stopped):
         if song is not None:
@@ -1277,7 +1282,12 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
             self.__update_title(player)
 
     def __queue_changed(self, *args):
-        can_start = app.player.paused and len(self.playlist.get()) > 0
+        self.__update_session(app.player)
+
+    def __update_session(self, player):
+        can_clear = player.paused and bool(player.song)
+        self.ui.get_widget("/Menu/Control/Clear").set_sensitive(can_clear)
+        can_start = player.paused and len(self.playlist.get()) > 0
         self.ui.get_widget("/Menu/Control/Start").set_sensitive(can_start)
 
     def __update_title(self, player):
@@ -1321,6 +1331,10 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
     def __preview_song_started(self, player, song):
         for wid in ["Control/Next", "Song/JumpPreview"]:
             self.ui.get_widget('/Menu/' + wid).set_sensitive(bool(song))
+
+    def __clear_session(self, *args):
+        if app.player.paused and bool(app.player.song):
+            app.player.remove(app.player.song)
 
     def __start_session(self, *args):
         if app.player.paused and len(self.playlist.get()) > 0:
