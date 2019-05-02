@@ -22,7 +22,6 @@ from quodlibet import qltk
 from quodlibet import util
 from quodlibet import app
 from quodlibet import _
-from quodlibet.compat import listfilter
 
 from quodlibet.qltk.appwindow import AppWindow
 from quodlibet.update import UpdateDialog
@@ -823,10 +822,14 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
                 a new provider or None to remove the current one
         """
 
-        self.main_player_bar.set_seekbar_widget(
-            provider.create_seekbar_widget(app.player, app.librarian))
-        self.preview_player_bar.set_seekbar_widget(
-            provider.create_seekbar_widget(app.preview_player, app.librarian))
+        if provider is None:
+            self.main_player_bar.set_seekbar_widget(None)
+            self.preview_player_bar.set_seekbar_widget(None)
+        else:
+            self.main_player_bar.set_seekbar_widget(
+                provider.create_seekbar_widget(app.player, app.librarian))
+            self.preview_player_bar.set_seekbar_widget(
+                provider.create_seekbar_widget(app.preview_player, app.librarian))
 
     def set_as_osx_window(self, osx_app):
         assert osx_app
@@ -1486,7 +1489,7 @@ class QuodLibetDJWindow(Window, PersistentWindowMixin, AppWindow):
         if browser.background:
             bg = background_filter()
             if bg:
-                songs = listfilter(bg, songs)
+                songs = list(filter(bg, songs))
         self.songlist.set_songs(songs, sorted)
 
         # After the first time the browser activates, which should always
